@@ -236,7 +236,7 @@ storage:
     min_block_duration: 1h  # Flush head block hourly vs default 2h
 ```
 
-Reduces head block memory pressure by 50% at cost of more disk I/O.
+Reduces head block memory pressure by 50% at cost of more disk I/O.  
 3. **Queue Configuration**
 
 ```yaml
@@ -246,7 +246,7 @@ queue_config:
   max_shards: 20               # Limit parallel connections
 ```
 
-Balances throughput and memory usage through controlled batching.
+Balances throughput and memory usage through controlled batching.  
 4. **Memory Limits**
 Set hard memory bounds with automatic throttling:
 
@@ -319,7 +319,7 @@ remote_write:
   queue_config:
     max_shards: 20              # Limit parallelism
     batch_send_deadline: 10s    # Larger batches
-write_relabel_configs:
+metrics_relabel_configs:
   - regex: "debug_.*"           # Drop non-essential metrics
     action: drop
 ```
