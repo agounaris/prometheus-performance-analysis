@@ -18,7 +18,7 @@ https://github.com/prometheus/prometheus
 We'll use an application called avalanche to generate random prometheus metrics.  
 `~/go/bin/avalanche --gauge-metric-count=100 --counter-metric-count=100 --histogram-metric-count=100 --port=9001`
 
-Prometheus will be setup with the following config.  
+Prometheus will be configured with the following resources and params.  
 ```
 resources:
   limits:
@@ -139,6 +139,8 @@ Number of 5xx responses:                            0
 3. Deploy the avalance.yaml, prom.yaml and alloy.yaml
 4. Wait for 10mins to have data
 5. Use baton to performance test the queries
+
+![Alt text](images/remote-write-prom.png)
 
 #### Results
 
