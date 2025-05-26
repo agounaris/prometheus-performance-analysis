@@ -215,7 +215,7 @@ With default `capacity=10000` and `max_shards=50`, this consumes ~8MiB + metadat
 ### Optimization Strategies
 
 1. **Reduce Series Cardinality**
-    - Apply aggressive `write_relabel_configs` to drop non-essential metrics
+    - Apply aggressive `metric_relabel_configs` to drop non-essential metrics
     - Use metric sampling for high-churn series:
 
 ```yaml
