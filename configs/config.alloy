@@ -1,0 +1,50 @@
+// Complete Grafana Alloy configuration for metrics collection and Prometheus forwarding
+logging {
+  level  = "info"  // Options: debug, info, warn, error
+  format = "logfmt" // Options: logfmt, json
+}
+
+// Configure scraping jobs
+prometheus.scrape "main" {
+  targets = concat(
+    [
+        {"__address__" = "localhost:12345"},
+        {"__address__" = "localhost:9001"},
+        {"__address__" = "localhost:9002"},
+        {"__address__" = "localhost:9003"},
+        {"__address__" = "localhost:9004"},
+        {"__address__" = "localhost:9005"},
+        {"__address__" = "localhost:9006"},
+        {"__address__" = "localhost:9007"},
+    ],
+  )
+  
+  scrape_interval = "1m"
+  scrape_timeout  = "10s"
+
+  forward_to = [prometheus.remote_write.prometheus_server.receiver]
+}
+
+// Configure remote write to Prometheus
+prometheus.remote_write "prometheus_server" {
+  endpoint {
+    url = "http://localhost:9090/api/v1/write"
+
+    queue_config {
+        capacity             = 2500
+        max_shards           = 200
+        min_shards           = 1
+        max_samples_per_send = 500
+    }
+  }
+}
+
+// Optional: Add metrics relabeling
+prometheus.relabel "filter_metrics" {
+  rule {
+    action       = "keep"
+    source_labels = ["__name__"]
+    regex        = "up|node_.*|process_.*"
+  }
+  forward_to = [prometheus.remote_write.prometheus_server.receiver]
+}

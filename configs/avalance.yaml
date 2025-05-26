@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: avalance
+  namespace: default
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: avalance
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9001"
+      labels:
+        app: avalance
+    spec:
+      containers:
+        - name: prometheus
+          image: quay.io/prometheuscommunity/avalanche:latest
+          args:
+          - "--gauge-metric-count=30"
+          - "--counter-metric-count=30" 
+          - "--histogram-metric-count=30"
+          ports:
+            - containerPort: 9001
+          resources:
+            limits:
+              cpu: 200m
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi

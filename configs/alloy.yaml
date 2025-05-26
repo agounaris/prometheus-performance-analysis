@@ -1,0 +1,364 @@
+---
+# Source: alloy/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: true
+metadata:
+  name: grafana-alloy
+  namespace: default
+  labels:
+    helm.sh/chart: alloy-1.0.3
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/instance: grafana-alloy
+    app.kubernetes.io/version: "v1.8.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: alloy
+    app.kubernetes.io/component: rbac
+---
+# Source: alloy/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alloy
+  namespace: default
+  labels:
+    helm.sh/chart: alloy-1.0.3
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/instance: grafana-alloy
+    app.kubernetes.io/version: "v1.8.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: alloy
+    app.kubernetes.io/component: config
+data:
+  config.alloy: |-
+    logging {
+    	level  = "info"
+    	format = "logfmt"
+    }
+    
+    discovery.kubernetes "pods" {
+    	role = "pod"
+    }
+    
+    discovery.kubernetes "nodes" {
+    	role = "node"
+    }
+
+    discovery.relabel "podrelabel" {
+      targets = concat(
+        discovery.kubernetes.pods.targets,
+        discovery.kubernetes.nodes.targets,
+      )
+
+      rule {
+        action = "labeldrop"
+        regex  = "(kubernetes_io.*|app_kubernetes_io.*|instance|beta_kubernetes_io.*|helm_sh_chart|instance|node|uid|pod_template_hash|series_id|cycle_id|id)"
+      } 
+    }
+    
+
+    discovery.relabel "cadvisor" {
+      targets = concat(
+        discovery.kubernetes.pods.targets,
+        discovery.kubernetes.nodes.targets,
+      )
+
+      rule {
+        action = "labelmap"
+        regex  = "__meta_kubernetes_node_label_(.+)"
+      }
+
+      rule {
+        replacement = "kubernetes.default.svc:443"
+        target_label = "__address__"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_node_name"]
+        regex         = "(.+)"
+        replacement   = "/api/v1/nodes/${1}/proxy/metrics/cadvisor"
+        target_label  = "__metrics_path__"
+      }
+
+      rule {
+        action = "labeldrop"
+        regex  = "(kubernetes_io.*|app_kubernetes_io.*|instance|beta_kubernetes_io.*|helm_sh_chart|instance|node|uid|pod_template_hash|series_id|cycle_id|id)"
+      }
+    }
+
+    prometheus.scrape "cadvisor" {
+      targets = discovery.relabel.cadvisor.output
+
+      scheme = "https"
+      tls_config {
+          server_name = "kubernetes"
+          ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+          insecure_skip_verify = false
+      }
+      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+
+      forward_to = [prometheus.remote_write.prom.receiver]
+    }
+
+
+    prometheus.scrape "k8s_pod_scrape" {
+      targets = discovery.relabel.podrelabel.output
+
+      // Optionally set scrape_interval and scrape_timeout if needed
+      // scrape_interval = "30s"
+      // scrape_timeout  = "10s"
+      forward_to = [prometheus.remote_write.prom.receiver]
+    }
+
+    prometheus.scrape "kube_state_metrics" {
+      targets = [
+        {
+          __address__ = "kube-state-metrics.kube-system.svc.cluster.local:8080",
+          job         = "kube-state-metrics",
+        },
+      ]
+      forward_to = [prometheus.remote_write.prom.receiver]
+    }
+
+    // Forward scraped metrics to Prometheus
+    prometheus.remote_write "prom" {
+      endpoint {
+        url = "http://prometheus-server:9090/api/v1/write"
+
+        queue_config {
+            capacity             = 50000
+            max_shards           = 10
+            max_samples_per_send = 10000
+        }
+      }
+    }
+---
+# Source: alloy/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: grafana-alloy
+  labels:
+    helm.sh/chart: alloy-1.0.3
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/instance: grafana-alloy
+    app.kubernetes.io/version: "v1.8.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: alloy
+    app.kubernetes.io/component: rbac
+rules:
+  # Rules which allow discovery.kubernetes to function.
+  - apiGroups:
+      - ""
+      - "discovery.k8s.io"
+      - "networking.k8s.io"
+    resources:
+      - endpoints
+      - endpointslices
+      - ingresses
+      - nodes
+      - nodes/proxy
+      - nodes/metrics
+      - pods
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  # Rules which allow loki.source.kubernetes and loki.source.podlogs to work.
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - pods/log
+      - namespaces
+      - nodes/metrics
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "monitoring.grafana.com"
+    resources:
+      - podlogs
+    verbs:
+      - get
+      - list
+      - watch
+  # Rules which allow mimir.rules.kubernetes to work.
+  - apiGroups: ["monitoring.coreos.com"]
+    resources:
+      - prometheusrules
+    verbs:
+      - get
+      - list
+      - watch
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+  # Rules for prometheus.kubernetes.*
+  - apiGroups: ["monitoring.coreos.com"]
+    resources:
+      - podmonitors
+      - servicemonitors
+      - probes
+      - scrapeconfigs
+    verbs:
+      - get
+      - list
+      - watch
+  # Rules which allow eventhandler to work.
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - get
+      - list
+      - watch
+  # needed for remote.kubernetes.*
+  - apiGroups: [""]
+    resources:
+      - "configmaps"
+      - "secrets"
+    verbs:
+      - get
+      - list
+      - watch
+  # needed for otelcol.processor.k8sattributes
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+---
+# Source: alloy/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-alloy
+  labels:
+    helm.sh/chart: alloy-1.0.3
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/instance: grafana-alloy
+    app.kubernetes.io/version: "v1.8.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: alloy
+    app.kubernetes.io/component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: grafana-alloy
+subjects:
+  - kind: ServiceAccount
+    name: grafana-alloy
+    namespace: default
+---
+# Source: alloy/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-alloy
+  namespace: default
+  labels:
+    helm.sh/chart: alloy-1.0.3
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/instance: grafana-alloy
+    app.kubernetes.io/version: "v1.8.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: alloy
+    app.kubernetes.io/component: networking
+spec:
+  type: NodePort 
+  selector:
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/instance: grafana-alloy
+  internalTrafficPolicy: Cluster
+  ports:
+    - name: http-metrics
+      port: 12345
+      targetPort: 12345
+      protocol: "TCP"
+      nodePort: 30001
+---
+# Source: alloy/templates/controllers/daemonset.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-alloy
+  namespace: default
+  labels:
+    helm.sh/chart: alloy-1.0.3
+    app.kubernetes.io/name: alloy
+    app.kubernetes.io/instance: grafana-alloy
+    app.kubernetes.io/version: "v1.8.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: alloy
+spec:
+  minReadySeconds: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alloy
+      app.kubernetes.io/instance: grafana-alloy
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: alloy
+      labels:
+        app.kubernetes.io/name: alloy
+        app.kubernetes.io/instance: grafana-alloy
+    spec:
+      serviceAccountName: grafana-alloy
+      containers:
+        - name: alloy
+          image: docker.io/grafana/alloy:v1.8.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --storage.path=/tmp/alloy
+            - --server.http.listen-addr=0.0.0.0:12345
+            - --server.http.ui-path-prefix=/
+            - --stability.level=generally-available
+          env:
+            - name: ALLOY_DEPLOY_MODE
+              value: "helm"
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - containerPort: 12345
+              name: http-metrics
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 12345
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 1
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+        - name: config-reloader
+          image: quay.io/prometheus-operator/prometheus-config-reloader:v0.81.0
+          args:
+            - --watched-dir=/etc/alloy
+            - --reload-url=http://localhost:12345/-/reload
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 350Mi
+            requests:
+              cpu: 500m
+              memory: 256Mi
+      dnsPolicy: ClusterFirst
+      volumes:
+        - name: config
+          configMap:
+            name: grafana-alloy

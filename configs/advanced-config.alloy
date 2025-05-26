@@ -1,0 +1,97 @@
+logging {
+    	level  = "info"
+    	format = "logfmt"
+    }
+    
+    discovery.kubernetes "pods" {
+    	role = "pod"
+    }
+    
+    discovery.kubernetes "nodes" {
+    	role = "node"
+    }
+
+    discovery.relabel "cadvisor_targets" {
+      targets = discovery.kubernetes.nodes.targets
+
+      // Set address to node IP and kubelet port (10250)
+      rule {
+        source_labels = ["__address__"]
+        regex         = "(.*):.*"
+        replacement   = "${1}:10250"
+        target_label  = "__address__"
+        action        = "replace"
+      }
+
+      // Set metrics path to cAdvisor endpoint
+      rule {
+        source_labels = []
+        target_label  = "__metrics_path__"
+        replacement   = "/metrics/cadvisor"
+        action        = "replace"
+      }
+
+      // Add cluster label
+      rule {
+        source_labels = []
+        target_label  = "cluster"
+        replacement   = "prod-cluster"
+      }
+
+      // Keep node name as a label
+      rule {
+        source_labels = ["__meta_kubernetes_node_name"]
+        target_label  = "node"
+      }
+    }
+
+    prometheus.scrape "cadvisor" {
+      targets = discovery.relabel.cadvisor_targets.output
+
+      // Authentication for kubelet (required)
+      http_client_config {
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        }
+      }
+
+      forward_to = [prometheus.remote_write.main.receiver]
+    }
+
+
+    prometheus.scrape "k8s_pod_scrape" {
+      targets = concat(
+        discovery.kubernetes.pods.targets,
+        discovery.kubernetes.nodes.targets,
+        discovery.relabel.cadvisor_targets.output,
+      )
+      // Optionally set scrape_interval and scrape_timeout if needed
+      // scrape_interval = "30s"
+      // scrape_timeout  = "10s"
+      forward_to = [prometheus.remote_write.prom.receiver]
+    }
+
+    prometheus.scrape "kube_state_metrics" {
+      targets = [
+        {
+          __address__ = "kube-state-metrics.kube-system.svc.cluster.local:8080",
+          job         = "kube-state-metrics",
+        },
+      ]
+      forward_to = [prometheus.remote_write.prom.receiver]
+    }
+
+    // Forward scraped metrics to Prometheus
+    prometheus.remote_write "prom" {
+      endpoint {
+        url = "http://prometheus-server:9090/api/v1/write"
+
+        queue_config {
+            capacity             = 100000
+            max_shards           = 200
+            min_shards           = 1
+            max_samples_per_send = 5000
+        }
+      }
+    }
