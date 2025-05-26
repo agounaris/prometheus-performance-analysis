@@ -388,7 +388,7 @@ Remote write isn't a replacement for scraping but a **strategic complement** for
 
 1. **Relabel filtering**:
 ```yaml
-write_relabel_configs:
+metric_relabel_configs:
   - source_labels: [__name__]
     regex: 'up|process_.*'  # Keep essential metrics
     action: keep
@@ -398,7 +398,7 @@ write_relabel_configs:
 
 2. **Sampling for high-volume metrics**:
 ```yaml
-write_relabel_configs:
+metric_relabel_configs:
   - source_labels: [__name__]
     regex: 'high_cardinality_metric'
     action: drop
