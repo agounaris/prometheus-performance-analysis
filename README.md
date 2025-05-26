@@ -211,14 +211,13 @@ With default `capacity=10000` and `max_shards=50`, this consumes ~8MiB + metadat
     - Use metric sampling for high-churn series:
 
 ```yaml
-relabel_configs:
+metric_relabel_configs:
   - source_labels: [__name__]
     regex: 'high_churn_metric.*'
     action: keep
     modulus: 10  # Keep 10% of series
-metric_relabel_configs:
-- action: labeldrop
-  regex: (group_.*|label1|label2)
+  - action: labeldrop
+    regex: (group_.*|label1|label2)
 ```
 
 2. **Tune Flush Intervals**
