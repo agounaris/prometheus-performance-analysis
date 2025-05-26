@@ -179,10 +179,10 @@ Number of 5xx responses:                            0
 ### Core Reasons for Memory Overhead
 
 1. **TSDB Head Block Retention**
-Prometheus stores 2-3 hours of recent metrics in the **in-memory head block** before flushing to disk. Even with remote write configured, this head block remains fully loaded to support potential local queries and WAL recovery[^4_1][^4_4].
-*Example*: 500k active series consume ~5.5GiB purely for TSDB head storage[^4_3].
+Prometheus stores 2-3 hours of recent metrics in the **in-memory head block** before flushing to disk. Even with remote write configured, this head block remains fully loaded to support potential local queries and WAL recovery.
+*Example*: 500k active series consume ~5.5GiB purely for TSDB head storage.
 2. **Remote Write Metadata Caching**
-The remote write system maintains a **series ID → labels cache** to efficiently encode samples for network transmission. This cache duplicates series metadata already stored in TSDB[^4_3][^4_4]:
+The remote write system maintains a **series ID → labels cache** to efficiently encode samples for network transmission. This cache duplicates series metadata already stored in TSDB:
 \$ Memory Overhead ≈ 0.5KB per series \$
 For 1M series, this adds ~500MiB overhead.
 3. **Queue Buffering Mechanics**
@@ -192,7 +192,7 @@ Each remote write shard maintains an in-memory buffer:
 Per-shard memory = capacity × 16 bytes (sample) + metadata
 ```
 
-With default `capacity=10000` and `max_shards=50`, this consumes ~8MiB + metadata[^4_3].
+With default `capacity=10000` and `max_shards=50`, this consumes ~8MiB + metadata.
 
 ### Comparative Analysis: Scraping vs Remote Write
 
@@ -226,7 +226,7 @@ storage:
     min_block_duration: 1h  # Flush head block hourly vs default 2h
 ```
 
-Reduces head block memory pressure by 50% at cost of more disk I/O[^4_1].
+Reduces head block memory pressure by 50% at cost of more disk I/O.
 3. **Queue Configuration**
 
 ```yaml
@@ -236,7 +236,7 @@ queue_config:
   max_shards: 20               # Limit parallel connections
 ```
 
-Balances throughput and memory usage through controlled batching[^4_3][^4_5].
+Balances throughput and memory usage through controlled batching.
 4. **Memory Limits**
 Set hard memory bounds with automatic throttling:
 
@@ -251,10 +251,10 @@ Set hard memory bounds with automatic throttling:
 A production system with 1M active series typically sees:
 
 - **Scraping Only**: ~6GiB RAM
-- **+ Remote Write**: ~7-8GiB RAM (+25-30%)[^4_1][^4_3]
-- **Poorly Tuned**: 10+GiB RAM (common in reported issues)[^4_1][^4_2]
+- **+ Remote Write**: ~7-8GiB RAM (+25-30%)
+- **Poorly Tuned**: 10+GiB RAM (common in reported issues)
 
-The memory overhead stems from Prometheus' design as a stateful TSDB first, with remote write as an additive feature. For pure forwarding use cases, consider dedicated agents like **Grafana Alloy** or **Prometheus Agent Mode** that strip out TSDB dependencies[^4_1][^4_4].
+The memory overhead stems from Prometheus' design as a stateful TSDB first, with remote write as an additive feature. For pure forwarding use cases, consider dedicated agents like **Grafana Alloy** or **Prometheus Agent Mode** that strip out TSDB dependencies.
 
 ### why prometheus offers the remote write if the performance is so much worst than scarping?
 
@@ -323,7 +323,7 @@ Edge Nodes: [Alloy Agent] --> Remote Write --> [Central Thanos/Cortex]
 
 #### Conclusion
 
-Remote write isn't a replacement for scraping but a **strategic complement** for scenarios requiring durability, centralized access, or cross-system integration. While it introduces higher resource usage, this trade-off is justified for organizations needing these capabilities. For pure scraping workloads, Prometheus remains optimized, but modern observability stacks often require hybrid approaches[^9_1][^9_2][^9_6].
+Remote write isn't a replacement for scraping but a **strategic complement** for scenarios requiring durability, centralized access, or cross-system integration. While it introduces higher resource usage, this trade-off is justified for organizations needing these capabilities. For pure scraping workloads, Prometheus remains optimized, but modern observability stacks often require hybrid approaches.
 
 ## Observations from the Test:
 
@@ -467,7 +467,7 @@ prometheus.scrape "low_mem" {
 }
 ```
 
-This cuts active series by 50% through selective scraping[^2_4].
+This cuts active series by 50% through selective scraping.
 
 ### 6. **Optimize Scrape Intervals**
 
@@ -487,7 +487,7 @@ prometheus.scrape "high_priority" {
 }
 ```
 
-Doubling intervals reduces memory usage by ~40%[^2_5].
+Doubling intervals reduces memory usage by ~40%.
 
 ### 7. **Enforce Memory Limits**
 
@@ -505,11 +505,11 @@ otelcol.processor.memory_limiter "guardrail" {
 }
 ```
 
-Forces garbage collection at 4GiB and throttles at 3.5GiB[^2_3].
+Forces garbage collection at 4GiB and throttles at 3.5GiB.
 
 ### 8. **Right-Scale Alloy Resources**
 
-Based on 11GiB per million active series[^2_1]:
+Based on 11GiB per million active series:
 
 ```alloy
 // For 500k series (5.5GiB needed):
@@ -548,7 +548,7 @@ queue_config:
 
 - **Throughput formula**:
 \$ Max samples/sec = \frac{max\_shards \times max\_samples\_per\_send}{avg\_request\_latency} \$
-Example: 50 shards × 5000 samples/send ÷ 0.5s latency = 500k samples/sec [^3_4][^3_6]
+Example: 50 shards × 5000 samples/send ÷ 0.5s latency = 500k samples/sec
 
 ### 11. Shard Optimization
 
@@ -563,7 +563,7 @@ remote_write:
   - url: "http://critical-endpoint"
     queue_config: {max_shards: 20}
   - url: "http://bulk-endpoint" 
-    queue_config: {max_shards: 100} [^3_2]
+    queue_config: {max_shards: 100}
 ```
 
 
@@ -638,35 +638,35 @@ Deploying Thanos with 35 Prometheus sidecars and 35 store pods introduces severa
 ### Key Factors Influencing Latency
 
 1. **Query Fan-Out Complexity**:
-    - A central Thanos Query pod must coordinate results from 35 sidecars (serving recent metrics) and 35 store pods (serving historical data from S3). This fan-out increases parallelism but amplifies the risk of slow responses from individual components[^1_4][^1_5].
+    - A central Thanos Query pod must coordinate results from 35 sidecars (serving recent metrics) and 35 store pods (serving historical data from S3). This fan-out increases parallelism but amplifies the risk of slow responses from individual components.
 2. **Store Gateway Performance**:
     - Store pods retrieve data from S3, which introduces latency proportional to object storage access times. For example:
-        - Using **EBS GP3 volumes** with optimized IOPS can reduce metadata fetch times compared to EFS[^1_2].
-        - Aggressive caching (e.g., `bucketCacheConfig: in-memory`) may reduce S3 roundtrips, as seen in a case where switching from Redis to in-memory caching lowered latency from >30s to ~15s[^1_2].
+        - Using **EBS GP3 volumes** with optimized IOPS can reduce metadata fetch times compared to EFS.
+        - Aggressive caching (e.g., `bucketCacheConfig: in-memory`) may reduce S3 roundtrips, as seen in a case where switching from Redis to in-memory caching lowered latency from >30s to ~15s.
 3. **Sharding and Resource Allocation**:
-    - **Time-based sharding** (e.g., partitioning metrics by age) reduces per-store workload. For example, splitting data into weekly blocks ensures each store pod handles smaller TSDB index ranges[^1_2][^1_3].
-    - Store pods require **sufficient memory** to load TSDB indexes. Underprovisioning forces frequent index re-reads from disk/S3, increasing latency[^1_1][^1_2].
+    - **Time-based sharding** (e.g., partitioning metrics by age) reduces per-store workload. For example, splitting data into weekly blocks ensures each store pod handles smaller TSDB index ranges.
+    - Store pods require **sufficient memory** to load TSDB indexes. Underprovisioning forces frequent index re-reads from disk/S3, increasing latency.
 4. **Caching and Downsampling**:
-    - **Query Frontend** with `--query-range.split-interval=6h` splits large queries into smaller chunks, improving cache utilization[^1_3][^1_6].
-    - Downsampling older metrics reduces the volume of processed data, as demonstrated in setups where compaction and resolution adjustments lowered storage costs by ~20%[^1_4].
+    - **Query Frontend** with `--query-range.split-interval=6h` splits large queries into smaller chunks, improving cache utilization.
+    - Downsampling older metrics reduces the volume of processed data, as demonstrated in setups where compaction and resolution adjustments lowered storage costs by ~20%.
 
 ### Observed Latency Benchmarks
 
-- In a test with vertical query sharding, latency dropped from **~10s to ~5s** when processing 100,000 samples[^1_6].
-- A production setup with 30 store pods and Redis caching reported **~15s latency** for SLI dashboards until switching to in-memory caching[^1_2].
-- Poorly configured storage (e.g., EFS with 100% throughput utilization) caused store pods to stall during metadata syncs for >30 minutes[^1_2].
+- In a test with vertical query sharding, latency dropped from **~10s to ~5s** when processing 100,000 samples.
+- A production setup with 30 store pods and Redis caching reported **~15s latency** for SLI dashboards until switching to in-memory caching.
+- Poorly configured storage (e.g., EFS with 100% throughput utilization) caused store pods to stall during metadata syncs for >30 minutes.
 
 
 ### Recommendations for Optimization
 
 | **Area** | **Action** |
 | :-- | :-- |
-| **Sharding** | Partition metrics by time (e.g., `min-time=-8w`, `max-time=-4w`) and hashmod to balance load[^1_1][^1_2]. |
-| **Caching** | Use `indexCacheConfig: REDIS` and `bucketCacheConfig: IN-MEMORY` with TTLs matching query patterns[^1_2][^1_3]. |
-| **Storage** | Opt for **EBS io1/io2 volumes** with provisioned IOPS for metadata-heavy workloads[^1_2]. |
-| **Resource Limits** | Allocate ≥8Gi memory per store pod to handle large TSDB indexes[^1_1][^1_2]. |
-| **Query Frontend** | Enable `--query-range.split-interval=6h` and Memcached for partial result caching[^1_3][^1_6]. |
+| **Sharding** | Partition metrics by time (e.g., `min-time=-8w`, `max-time=-4w`) and hashmod to balance load. |
+| **Caching** | Use `indexCacheConfig: REDIS` and `bucketCacheConfig: IN-MEMORY` with TTLs matching query patterns. |
+| **Storage** | Opt for **EBS io1/io2 volumes** with provisioned IOPS for metadata-heavy workloads. |
+| **Resource Limits** | Allocate ≥8Gi memory per store pod to handle large TSDB indexes. |
+| **Query Frontend** | Enable `--query-range.split-interval=6h` and Memcached for partial result caching. |
 
 ### Conclusion
 
-With 35 store pods and sidecars, expect **average latencies between 5–15 seconds** for typical queries, assuming proper sharding, caching, and storage tuning. Real-world performance heavily depends on mitigating S3 access bottlenecks and optimizing fan-out concurrency. For sub-5s latency, prioritize reducing cross-pod coordination (e.g., stricter time partitioning) and aggressive in-memory caching[^1_2][^1_6].
+With 35 store pods and sidecars, expect **average latencies between 5–15 seconds** for typical queries, assuming proper sharding, caching, and storage tuning. Real-world performance heavily depends on mitigating S3 access bottlenecks and optimizing fan-out concurrency. For sub-5s latency, prioritize reducing cross-pod coordination (e.g., stricter time partitioning) and aggressive in-memory caching.
