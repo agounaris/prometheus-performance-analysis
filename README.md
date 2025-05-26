@@ -9,7 +9,13 @@
 
 ## Experiment setup
 
-We'll use an application called avalance to generate random prometheus metrics.  
+We'll use the following components  
+https://github.com/americanexpress/baton
+https://hub.docker.com/r/prometheuscommunity/avalanche
+https://github.com/grafana/alloy
+https://github.com/prometheus/prometheus
+
+We'll use an application called avalanche to generate random prometheus metrics.  
 `~/go/bin/avalanche --gauge-metric-count=100 --counter-metric-count=100 --histogram-metric-count=100 --port=9001`
 
 Prometheus will be setup with the following config.  

@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: avalance
+  name: avalanche
   namespace: default
 spec:
   replicas: 10
   selector:
     matchLabels:
-      app: avalance
+      app: avalanche
   template:
     metadata:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9001"
       labels:
-        app: avalance
+        app: avalanche
     spec:
       containers:
         - name: prometheus
