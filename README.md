@@ -590,23 +590,6 @@ Set alerts when:
 - Queue duration exceeds `2 * batch_send_deadline`
 - Failed samples > 1% of total for 5 minutes
 
-
-### 13. Production Best Practices
-
-1. **Security**:
-    - Use TLS with certificate rotation
-    - Limit remote write account privileges
-2. **Architecture**:
-    - Deploy 2+ Prometheus instances for HA
-    - Partition metrics by team/domain to separate queues
-3. **Resource Limits**:
-    - Allocate 2GB RAM per 100k samples in queue
-    - Limit CPU to 0.5 cores per 50k samples/sec
-
-**Case Study Results**:
-A 10k-node deployment achieved 60% CPU reduction and 70% latency improvement through shard tuning + cardinality controls. For most setups, proper queue configuration and label management reduce remote write issues by 80%+ while maintaining 99.9% delivery reliability.
-
-
 ---
 
 ### **Recommended HA Architecture**
