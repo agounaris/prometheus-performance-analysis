@@ -266,7 +266,7 @@ A production system with 1M active series typically sees:
 
 The memory overhead stems from Prometheus' design as a stateful TSDB first, with remote write as an additive feature. For pure forwarding use cases, consider dedicated agents like **Grafana Alloy** or **Prometheus Agent Mode** that strip out TSDB dependencies.
 
-### why prometheus offers the remote write if the performance is so much worst than scarping?
+### Prometheus remote write reasoning
 
 Prometheus offers remote write despite its performance trade-offs because it addresses critical architectural needs that scraping alone cannot fulfill, particularly in distributed and scalable environments. Here's why it remains valuable despite higher resource usage:
 
