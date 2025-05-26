@@ -145,7 +145,7 @@ Number of 5xx responses:                            0
 #### Results
 
 With 10 avalance pods we gathered ~400k samples  
-RAM was exploding up to 7GBs cause OOM errors on Prometheus! Why?  
+RAM was exploding up to 7GBs causing OOM errors on Prometheus! Why?  
 Query performance when prometheus was active was still good  
 ```
 argy@Argyrioss-MacBook-Pro ~ % ~/go/bin/baton -c 100 -r 50 -u "http://localhost:30000/api/v1/query?query=sum(scrape_samples_scraped)"
@@ -177,7 +177,7 @@ Number of 5xx responses:                            0
 
 ### High level observations
 
-- Remote write is causing higher RAM utilisation on the prometheus side
+- Remote write is causing a 25-30% increase memory utilisation for the same number of samples  
 - Grafana alloy wont give us any performance improvement
 - Query response times when data is in memory is still good 
 - Cardinality matters a lot!
